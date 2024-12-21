@@ -1,0 +1,110 @@
+library(data.table)
+library(tidyverse) 
+library(caret)
+install.packages("imputeTS")
+library(imputeTS)
+library(MLmetrics)
+library(readxl)
+library(ggplot2)
+
+#Opciones <- c(2013, 2017, 2022)
+#set.seed(59)
+#año = Opciones[sample(1:3,1)]
+#año
+
+# cargar la base de dato
+data <- read_excel("Casen_2022red.xlsx")
+
+#(1pt) Buscaremos estimar el ingreso de las personas que trabajan, por lo que debe realizar un filtro en que, aquellas personas que 
+#tengan 0 ingresos o 0 horas trabajadas no aparezcan en el listado. Luego de eso, entregue la estadistica descriptiva de las variables
+#de su base, incluyendolas en el informe.
+
+str(data) #explorar las variables
+
+#identificar valor 0 en ingreso_persona
+table(data$Ingreso_persona) #56.321 valores 0
+
+#eliminar valores 0 de la variable ingreso_persona
+data <- data[data$Ingreso_persona > 0, ] # observaciones se reducen a 145,910
+#estadisticas descriptivas
+summary(data$Ingreso_persona)
+#A partir de estas estadisticas se puede identificar una distribucion sesgada hacia la derecha debido a que el promedio es significativamente
+#mayor que la mediana, presentando una diferencia en el ingreso. Esto puede ser por la presencia de 
+#valores de ingresos significativamente mayores, por ejemplo, hay un individuo que declaró 63.740.000. 
+
+#calcular la varianza para ingreso_persona
+var(data$Ingreso_persona) 
+sd(data$Ingreso_persona) # Esta desviación estandar 784.608
+
+#calcular rangos intercuartilicos
+rango <- IQR(data$Ingreso_persona)
+print(rango)
+boxplot(data$Ingreso_persona) #Se puede identificar outliers. Esto indica una desigualdad importante
+#en el ingreso de las personas. La mayoria se encuentra en un rango de 400.000 y 825.000 aunque
+#existen ingresos que se alejan de forma importante del promedio, existiendo un maximo, por ejemplo de 63.740.000
+
+# Ordenar el data.frame por la columna "Ingreso_persona" de mayor a menor
+#data_ordenada_desc <- data[order(data$Ingreso_persona, decreasing = TRUE), ]
+
+
+#identificar valores 0 horas 
+table(data$Horas) # 1124 No sabe
+sum(is.na(data$Horas)) #61.726 NA's
+#La variable Horas es tipo de dato chr
+#Reemplaza valores no numéricos por NA (como el "No sabe" 1124) y luego conviertir la variable a numérica
+data$Horas <- as.numeric(gsub("[^0-9]", NA, data$Horas))
+
+#eliminar los NA
+data <- data[!is.na(data$Horas),] #las observaciones se reducne a 83.060
+
+summary(data$Horas)
+
+# el DF presentaba 202,231 observaciones
+#Al aplicar el filtro de elimnar NA's y "no sabe" de Horas de trabajo las observaciones disminuyen a 83.060 observaciones.
+#25% de las personas trabajan menos de 40 horas y presentan un ingreso menor a 400.000
+#la media es de 45 horas con un ingreso de 521.022
+#En promedio los individuos trabajan 40 horas y presentan un ingreso de 757.490 y el 75% presenta un ingreso bajo los 825.000
+#los cuartiles indican que el 50% de los valores estan entre 40 y 45 horas semanales. 
+#hay sólo una observacion de 168 horas trabajadas, lo cual corresponde a 7 días días de trabajo. (Qué hacemos con este valor)
+
+#B
+# La información de años de escolaridad (esc) y de pobreza presenta (o podría presentar) datos faltantes. 
+#Decida alguna forma para imputar los datos faltantes considerando información de la persona, justifiquela en el 
+#informe y presente gráficos que muestren estadísticas para esas variables pre y post imputación.
+
+#gráficar variable escolaridad antes de la imputación
+
+summary(data$esc)
+#existen 523 datos NA's
+#555 observaciones presenta 0 años de estudio
+#hay solo un valor con 29 años de escolaridad 
+#Observando la mediana se indica que la mitad de la población tiene 12 años de escolaridad
+#lo que sugiere enseñanza media completa. La media es levemente mayor 12.35
+#el 25 % presenta menos de 11 años de escolaridad. Lo que indica una escolaridad incompleta
+#el 75% de la población presenta entre 11 y 15 años de escolaridad 
+
+
+graf_esc <- ggplot(data = data) +  geom_histogram(aes(x = esc, y = after_stat(density)),
+                                      bins = 30,
+                                      fill = "lightblue",
+                                      alpha = 0.9) +
+  labs(
+    title = "Años de escolaridad",
+    x = "Escolaridad",
+    y = "Densidad"
+  ) 
+
+#imputación por el promedio de la variable escolaridad 
+data$esc[is.na(data$esc)] <- mean(data$esc, na.rm = TRUE)
+table(is.na(data$esc)) # ya no hay NA's
+summary(data$esc)
+
+#al realizar esta imputación la disribución de los datos no se ve afectada, por lo que creo es adecuada
+
+#variable pobreza
+table(is.na(data$pobreza)) # 115 NA's
+table(data$pobreza)  # la data esta desvalanceada 81.210 corresponde a no pobreza 
+#gráficar variable de pobreza antes de la imputación
+graf_probreza <- ggplot(data, aes(x = pobreza)) +
+  geom_bar(stat = "count", fill = "lightblue") +
+  labs(x = "Niveles de pobreza", y = "Conteo")
