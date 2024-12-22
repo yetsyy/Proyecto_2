@@ -108,3 +108,5 @@ table(data$pobreza)  # la data esta desvalanceada 81.210 corresponde a no pobrez
 graf_probreza <- ggplot(data, aes(x = pobreza)) +
   geom_bar(stat = "count", fill = "lightblue") +
   labs(x = "Niveles de pobreza", y = "Conteo")
+
+#identificar cual tipo de imputación
